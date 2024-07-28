@@ -1,12 +1,54 @@
+import { ec as EC } from "elliptic";
+
+const ec = new EC("secp256k1");
+
+const hasher = new Bun.CryptoHasher("sha256");
+
 class Transaction {
   fromAddress: string;
   toAddress: string;
   amount: number;
+  timestamp: number;
+  signature?: string;
 
   constructor(fromAddress: string, toAddress: string, amount: number) {
     this.fromAddress = fromAddress;
     this.toAddress = toAddress;
     this.amount = amount;
+    this.timestamp = Date.now();
+  }
+
+  calculateHash() {
+    return hasher
+      .update(this.fromAddress)
+      .update(this.toAddress)
+      .update(this.amount.toString())
+      .update(this.timestamp.toString())
+      .digest("hex");
+  }
+
+  sign(signingKey: EC.KeyPair) {
+    if (signingKey.getPublic("hex") !== this.fromAddress) {
+      throw new Error("You cannot sign transactions for other wallets!");
+    }
+
+    const hashTx = this.calculateHash();
+    const sig = signingKey.sign(hashTx, "base64");
+    this.signature = sig.toDER("hex");
+  }
+
+  isValid(): boolean {
+    // If the transaction doesn't have a from address we assume it's a
+    // mining reward and that it's valid. You could verify this in a
+    // different way (special field for instance)
+    if (this.fromAddress === null) return true;
+
+    if (!this.signature) {
+      throw new Error("No signature in this transaction");
+    }
+
+    const publicKey = ec.keyFromPublic(this.fromAddress, "hex");
+    return publicKey.verify(this.calculateHash(), this.signature);
   }
 }
 
@@ -16,8 +58,6 @@ class Block {
   previousHash: string;
   hash: string;
   nonce = 0;
-
-  hasher = new Bun.CryptoHasher("sha256");
 
   constructor(
     timestamp: string,
@@ -31,7 +71,7 @@ class Block {
   }
 
   calculateHash(): string {
-    return this.hasher
+    return hasher
       .update(this.timestamp)
       .update(JSON.stringify(this.transactions))
       .update(this.previousHash)
@@ -47,6 +87,16 @@ class Block {
     }
     console.log("Block mined: " + this.hash);
   }
+
+  hasValidTransactions() {
+    for (const tx of this.transactions) {
+      if (!tx.isValid()) {
+        return false;
+      }
+    }
+
+    return true;
+  }
 }
 
 class Blockchain {
@@ -55,20 +105,8 @@ class Blockchain {
   mindReward = 100;
   pendingTransactions: Transaction[] = [];
 
-  constructor() {}
-
   createGenesisBlock(): Block {
     return new Block("2024/07/28", [], "0");
-  }
-
-  getLatestBlock(): Block {
-    return this.chain[this.chain.length - 1];
-  }
-
-  addBlock(newBlock: Block): void {
-    newBlock.previousHash = this.getLatestBlock().hash;
-    newBlock.mineBlock(this.difficulty);
-    this.chain.push(newBlock);
   }
 
   minePendingTransactions(miningRewardAddress: string): void {
@@ -84,6 +122,41 @@ class Blockchain {
   }
 
   addTransaction(transaction: Transaction): void {
+    // user transaction need fromAddress and toAddress
+    if (transaction.fromAddress === "" || transaction.toAddress === "") {
+      throw new Error("Transaction must include a valid from and to address.");
+    }
+
+    if (!transaction.isValid()) {
+      throw new Error("Invalid transaction");
+    }
+
+    if (transaction.amount < 0) {
+      throw new Error("Amount must be positive");
+    }
+
+    const walletBalance = this.getBalanceOfAddress(transaction.fromAddress);
+    if (walletBalance < transaction.amount) {
+      throw new Error("Not enough balance");
+    }
+
+    const pendingTxForWallet = this.pendingTransactions.filter(
+      (tx) => tx.fromAddress === transaction.fromAddress
+    );
+
+    if (pendingTxForWallet.length > 0) {
+      const totalPendingAmount = pendingTxForWallet
+        .map((tx) => tx.amount)
+        .reduce((prev, curr) => prev + curr);
+
+      const totalAmount = totalPendingAmount + transaction.amount;
+      if (totalAmount > walletBalance) {
+        throw new Error(
+          "Pending transactions for this wallet is higher than its balance."
+        );
+      }
+    }
+
     this.pendingTransactions.push(transaction);
   }
 
@@ -114,6 +187,10 @@ class Blockchain {
         return false;
       }
 
+      if (!currentBlock.hasValidTransactions()) {
+        return false;
+      }
+
       if (currentBlock.previousHash !== previousBlock.hash) {
         return false;
       }
@@ -123,24 +200,29 @@ class Blockchain {
 }
 
 // 使用示例
-let myBlockchain = new Blockchain();
-myBlockchain.addTransaction(new Transaction("address1", "address2", 100));
-myBlockchain.addTransaction(new Transaction("address2", "address1", 50));
-
-console.log("\nStarting the miner...");
-myBlockchain.minePendingTransactions("miner-address");
-
-console.log(
-  "\nBalance of xavier is",
-  myBlockchain.getBalanceOfAddress("miner-address")
+const myKey = ec.keyFromPrivate(
+  "7c4c45907dec40c91bab3480c39032e90049f1a44f3e18c3e07c23e3273995cf"
 );
 
-console.log("\nStarting the miner again...");
-myBlockchain.minePendingTransactions("miner-address");
+const myWalletAddress = myKey.getPublic("hex");
+
+// 使用示例
+const myBlockchain = new Blockchain();
+
+myBlockchain.minePendingTransactions(myWalletAddress);
+
+const tx1 = new Transaction(myWalletAddress, "address2", 100);
+tx1.sign(myKey);
+myBlockchain.addTransaction(tx1);
+
+myBlockchain.minePendingTransactions(myWalletAddress);
+
+const tx2 = new Transaction(myWalletAddress, "address1", 50);
+tx2.sign(myKey);
+myBlockchain.addTransaction(tx2);
+myBlockchain.minePendingTransactions(myWalletAddress);
 
 console.log(
-  "\nBalance of xavier is",
-  myBlockchain.getBalanceOfAddress("miner-address")
+  "\nBalance of myWalletAddress is",
+  myBlockchain.getBalanceOfAddress(myWalletAddress)
 );
-
-console.log("\n" + JSON.stringify(myBlockchain, null, 2));
