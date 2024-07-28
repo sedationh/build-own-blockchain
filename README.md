@@ -34,5 +34,6 @@ This code demonstrates the basic concepts of a blockchain, including:
 - Blockchain validity verification
 - Implementation of a proof-of-work mechanism
 - Transaction processing with mining rewards
+- Transaction signing and verification using public and private keys
 
 ![image](https://github.com/user-attachments/assets/e235363d-48d2-4a41-ae57-d6cc91511aca)
