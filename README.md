@@ -44,3 +44,74 @@ Blockchain valid? true
     }
 ]
 ```
+
+## v3
+
+This code demonstrates the basic concepts of a blockchain, including block hash calculation, linkage between blocks, blockchain validity verification, implementation of a proof-of-work mechanism, and transaction processing with mining rewards.
+
+```
+
+Starting the miner...
+Block mined: 00000ab026e52848dbd2bf49a1053cca8e243c8648641615572b8cff223a13cd
+
+Balance of xavier is 100
+
+Starting the miner again...
+Block mined: 00000807e149e5cdc2455aeb18c38d0eea73bba81a0a419e207c67e30f404146
+
+Balance of xavier is 200
+
+{
+  "chain": [
+    {
+      "timestamp": "2024/07/28",
+      "transactions": [],
+      "previousHash": "0",
+      "hash": "7e59d83aefc02172daf5855dcc246cd80403459b32d7f5e6cbc0538bef379375",
+      "nonce": 0,
+      "hasher": {}
+    },
+    {
+      "timestamp": "1722174035619",
+      "transactions": [
+        {
+          "fromAddress": "address1",
+          "toAddress": "address2",
+          "amount": 100
+        },
+        {
+          "fromAddress": "address2",
+          "toAddress": "address1",
+          "amount": 50
+        },
+        {
+          "fromAddress": "",
+          "toAddress": "miner-address",
+          "amount": 100
+        }
+      ],
+      "previousHash": "",
+      "hash": "00000ab026e52848dbd2bf49a1053cca8e243c8648641615572b8cff223a13cd",
+      "nonce": 710114,
+      "hasher": {}
+    },
+    {
+      "timestamp": "1722174036645",
+      "transactions": [
+        {
+          "fromAddress": "",
+          "toAddress": "miner-address",
+          "amount": 100
+        }
+      ],
+      "previousHash": "",
+      "hash": "00000807e149e5cdc2455aeb18c38d0eea73bba81a0a419e207c67e30f404146",
+      "nonce": 253325,
+      "hasher": {}
+    }
+  ],
+  "difficulty": 5,
+  "mindReward": 100,
+  "pendingTransactions": []
+}
+```
