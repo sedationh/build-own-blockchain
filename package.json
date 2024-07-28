@@ -1,5 +1,5 @@
 {
-  "name": "own-blockchain",
+  "name": "build-own-blockchain",
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
